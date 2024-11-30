@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-		SONAR_PROJECT_KEY = 'complete-cicd'
+		SONAR_PROJECT_KEY = 'FastaApi-CICD'
 		SONAR_SCANNER_HOME = tool 'SonarQubeScanner'
 
 		DOCKER_IMAGE = 'fastapi-image'
@@ -29,17 +29,12 @@ pipeline {
 
 		stage('SonarQube Analysis'){
 			steps {
-				withCredentials([string(credentialsId: 'complete-cicd-token', variable: 'SONAR_TOKEN')]) {
-
-					withSonarQubeEnv('SonarQube') {
-    					sh """
-						${SONAR_SCANNER_HOME}/bin/sonar-scanner \
+				withSonarQubeEnv('SonarQube') {
+    				sh """
+					${SONAR_SCANNER_HOME}/bin/sonar-scanner \
 						-Dsonar.projectKey=${SONAR_PROJECT_KEY} \
 						-Dsonar.sources=. \
-						-Dsonar.host.url=http://sonarqube:9000 \
-						-Dsonar.login=${SONAR_TOKEN}
-						"""
-					}
+					"""
 				}
 			}
 		}
@@ -67,7 +62,7 @@ pipeline {
             steps {
 
                 withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG')]) {
-                    sh 'helm upgrade --install release-1 ./fastapi-chart --namespace fastapi'
+                    sh '''helm upgrade --install release-1 ./fastapi-chart --namespace fastapi'''
                 }
             }
         }
