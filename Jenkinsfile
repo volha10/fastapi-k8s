@@ -4,6 +4,8 @@ pipeline {
     environment {
 		SONAR_PROJECT_KEY = 'complete-cicd'
 		SONAR_SCANNER_HOME = tool 'SonarQubeScanner'
+
+		DOCKER_IMAGE = 'fastapi-image'
 	}
 
     stages {
@@ -15,7 +17,13 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh "docker build . -t fastapi-image"
+                sh 'docker build . -t $DOCKER_IMAGE'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'docker run $DOCKER_IMAGE pytest'
             }
         }
 
@@ -37,18 +45,30 @@ pipeline {
 		}
 
 		stage('Push Image to ECR'){
-			steps {
-				sh """
-				aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 358966077876.dkr.ecr.eu-central-1.amazonaws.com
-				docker tag fastapi-image 358966077876.dkr.ecr.eu-central-1.amazonaws.com/test_web_app:latest
-				docker push 358966077876.dkr.ecr.eu-central-1.amazonaws.com/test_web_app:latest
-				"""
-			}
+		    steps {
+		        script {
+                    withCredentials([
+                        string(credentialsId: 'AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID'),
+                        string(credentialsId: 'AWS_REGION', variable: 'AWS_REGION'),
+                        string(credentialsId: 'AWS_ECR_REPO_NAME', variable: 'AWS_ECR_REPO_NAME')
+                    ]) {
+                        sh '''
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                        docker tag $DOCKER_IMAGE $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$AWS_ECR_REPO_NAME:latest
+                        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$AWS_ECR_REPO_NAME:latest
+                        echo $MANUAL_STEP_APPROVED
+                        '''
+                    }
+                }
+            }
 		}
 
 		stage('Deploy') {
             steps {
-                sh "helm upgrade --install release-1 ./fastapi-chart --namespace fastapi"
+
+                withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG')]) {
+                    sh 'helm upgrade --install release-1 ./fastapi-chart --namespace fastapi'
+                }
             }
         }
     }
