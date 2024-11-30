@@ -71,7 +71,18 @@ pipeline {
             }
             steps {
                 withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG')]) {
-                    sh '''helm upgrade --install release-1 ./fastapi-chart --namespace fastapi'''
+                    sh 'helm upgrade --install release-1 ./fastapi-chart --namespace fastapi'
+                }
+            }
+        }
+
+		stage('Verification') {
+		    when {
+                expression { return MANUAL_STEP_APPROVED } // Run only if approved
+            }
+            steps {
+                withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG')]) {
+                    sh 'sleep 20 && kubectl get all -n fastapi'
                 }
             }
         }
