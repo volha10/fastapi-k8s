@@ -6,6 +6,8 @@ pipeline {
 		SONAR_SCANNER_HOME = tool 'SonarQubeScanner'
 
 		DOCKER_IMAGE = 'fastapi-image'
+
+		MANUAL_STEP_APPROVED = false
 	}
 
     stages {
@@ -42,6 +44,11 @@ pipeline {
 		stage('Push Image to ECR'){
 		    steps {
 		        script {
+		            MANUAL_STEP_APPROVED = input(
+                        message: 'Do you want to proceed with pushing to AWS ECR',
+                        parameters: [booleanParam(defaultValue: false, description: '', name: 'Push to AWS ECR')]
+                    )
+
                     withCredentials([
                         string(credentialsId: 'AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID'),
                         string(credentialsId: 'AWS_REGION', variable: 'AWS_REGION'),
@@ -59,8 +66,10 @@ pipeline {
 		}
 
 		stage('Deploy') {
+		    when {
+                expression { return MANUAL_STEP_APPROVED } // Run only if approved
+            }
             steps {
-
                 withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG')]) {
                     sh '''helm upgrade --install release-1 ./fastapi-chart --namespace fastapi'''
                 }
