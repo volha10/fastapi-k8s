@@ -70,8 +70,17 @@ pipeline {
                 expression { return MANUAL_STEP_APPROVED } // Run only if approved
             }
             steps {
-                withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG')]) {
-                    sh 'helm upgrade --install release-1 ./fastapi-chart --namespace fastapi'
+                withCredentials([
+                    file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG'),
+                    string(credentialsId: 'AWS_ACCOUNT_ID', variable: 'AWS_ACCOUNT_ID'),
+                    string(credentialsId: 'AWS_REGION', variable: 'AWS_REGION'),
+                    string(credentialsId: 'AWS_ECR_REPO_NAME', variable: 'AWS_ECR_REPO_NAME')
+                ]) {
+                sh '''
+                helm upgrade --install release-1 ./fastapi-chart \
+                    --set image.repository="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$AWS_ECR_REPO_NAME" \
+                    --namespace fastapi
+                '''
                 }
             }
         }
@@ -82,7 +91,7 @@ pipeline {
             }
             steps {
                 withCredentials([file(credentialsId: 'KUBECONFIG_CRED', variable: 'KUBECONFIG')]) {
-                    sh 'sleep 20 && kubectl get all -n fastapi'
+                    sh 'sleep 20 && kubectl get all -n fastapi && curl http://localhost:30080'
                 }
             }
         }
